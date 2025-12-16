@@ -119,6 +119,59 @@ async function run() {
       res.send(result);
     });
 
+
+
+    // for profile patch
+
+
+
+
+
+    // Update user info
+app.patch("/users/:email", verifyToken, async (req, res) => {
+  const email = req.params.email;
+  const updatedInfo = req.body;
+
+  try {
+    const result = await userCollection.updateOne(
+      { email },
+      { $set: updatedInfo }
+    );
+
+    if (result.matchedCount === 0) {
+      return res.status(404).send({ message: "User not found" });
+    }
+
+    res.send({ success: true, message: "User updated successfully" });
+  } catch (err) {
+    console.error("User update error:", err);
+    res.status(500).send({ message: "Server error updating user" });
+  }
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     //for useUserRole ok
     app.get("/users/:email", async (req, res) => {
       const email = req.params.email;
@@ -211,25 +264,67 @@ app.get("/assetsEmail", verifyToken,verifyAdmin, async (req, res) => {
     });
 
     // update asset
-    app.patch("/assets/:id", verifyToken, async (req, res) => {
-      const id = req.params.id;
-      const assetInfo = req.body;
-      const query = { _id: new ObjectId(id) };
+    // app.patch("/assets/:id", verifyToken, async (req, res) => {
+    //   const id = req.params.id;
+    //   const assetInfo = req.body;
+    //   const query = { _id: new ObjectId(id) };
 
-      const updateDoc = {
-        $set: {
-          name: assetInfo.name,
-          type: assetInfo.type,
-          value: assetInfo.value,
-          location: assetInfo.location,
-          status: assetInfo.status,
-        },
-      };
-      const result = await assetCollection.updateOne(query, updateDoc, {
-        upsert: true,
-      });
-      res.send(result);
-    });
+    //   const updateDoc = {
+    //     $set: {
+    //       name: assetInfo.name,
+    //       type: assetInfo.type,
+    //       value: assetInfo.value,
+    //       location: assetInfo.location,
+    //       status: assetInfo.status,
+    //     },
+    //   };
+    //   const result = await assetCollection.updateOne(query, updateDoc, {
+    //     upsert: true,
+    //   });
+    //   res.send(result);
+    // });
+
+
+
+
+
+
+    // update asset
+app.patch("/assets/:id", verifyToken, async (req, res) => {
+  const id = req.params.id;
+  const assetInfo = req.body;
+
+  const query = { _id: new ObjectId(id) };
+
+  const updateDoc = {
+    $set: {
+      productName: assetInfo.productName,
+      productQuantity: Number(assetInfo.productQuantity),
+      availableQuantity: Number(assetInfo.availableQuantity),
+      productType: assetInfo.productType,
+      companyName: assetInfo.companyName,
+    },
+  };
+
+  const result = await assetCollection.updateOne(query, updateDoc);
+
+  res.send(result);
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     // packages related apis
 
