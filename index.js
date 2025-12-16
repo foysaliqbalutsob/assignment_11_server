@@ -19,7 +19,7 @@ app.use(cors());
 
 async function verifyToken(req, res, next) {
   const authHeader = req.headers.authorization;
-  
+
   if (!authHeader?.startsWith("Bearer ")) {
     return res.status(401).send({ error: "Unauthorized" });
   }
@@ -28,7 +28,7 @@ async function verifyToken(req, res, next) {
 
   try {
     const decoded = await admin.auth().verifyIdToken(token);
-    req.decodedEmail = decoded.email; 
+    req.decodedEmail = decoded.email;
     // console.log("Decoded email:", decoded.email);
     next();
   } catch (error) {
@@ -119,58 +119,28 @@ async function run() {
       res.send(result);
     });
 
-
-
     // for profile patch
 
-
-
-
-
     // Update user info
-app.patch("/users/:email", verifyToken, async (req, res) => {
-  const email = req.params.email;
-  const updatedInfo = req.body;
+    app.patch("/users/:email", verifyToken, async (req, res) => {
+      const email = req.params.email;
+      const updatedInfo = req.body;
+      try {
+        const result = await userCollection.updateOne(
+          { email },
+          { $set: updatedInfo }
+        );
 
-  try {
-    const result = await userCollection.updateOne(
-      { email },
-      { $set: updatedInfo }
-    );
+        if (result.matchedCount === 0) {
+          return res.status(404).send({ message: "User not found" });
+        }
 
-    if (result.matchedCount === 0) {
-      return res.status(404).send({ message: "User not found" });
-    }
-
-    res.send({ success: true, message: "User updated successfully" });
-  } catch (err) {
-    console.error("User update error:", err);
-    res.status(500).send({ message: "Server error updating user" });
-  }
-});
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        res.send({ success: true, message: "User updated successfully" });
+      } catch (err) {
+        console.error("User update error:", err);
+        res.status(500).send({ message: "Server error updating user" });
+      }
+    });
 
     //for useUserRole ok
     app.get("/users/:email", async (req, res) => {
@@ -203,8 +173,6 @@ app.patch("/users/:email", verifyToken, async (req, res) => {
       res.send(result);
     });
 
-
-
     // Asset related apis
     app.get("/assets", async (req, res) => {
       const cursor = myDB.collection("assets").find({});
@@ -218,42 +186,27 @@ app.patch("/users/:email", verifyToken, async (req, res) => {
       const result = await assetCollection.insertOne(asset);
       res.send(result);
     });
-    
 
+    // --- Assets API ---
 
+    app.get("/assetsEmail", verifyToken, verifyAdmin, async (req, res) => {
+      try {
+        const email = req.decodedEmail;
+        console.log("Fetching assets for:", email);
 
-// --- Assets API ---
+        if (!email) {
+          return res.status(401).send({ message: "Unauthorized" });
+        }
 
-app.get("/assetsEmail", verifyToken,verifyAdmin, async (req, res) => {
-  try {
-    const email = req.decodedEmail; 
-    console.log("Fetching assets for:", email);
+        const query = { hrEmail: email };
+        const assets = await assetCollection.find(query).toArray();
 
-    if (!email) {
-      return res.status(401).send({ message: "Unauthorized" });
-    }
-
-    const query = { hrEmail: email }; 
-    const assets = await assetCollection.find(query).toArray();
-
-    res.send(assets);
-  } catch (error) {
-    console.error("Error fetching assets:", error);
-    res.status(500).send({ message: "Server Error" });
-  }
-});
-
-
-
-
-
-
-
-
-
-
-
-
+        res.send(assets);
+      } catch (error) {
+        console.error("Error fetching assets:", error);
+        res.status(500).send({ message: "Server Error" });
+      }
+    });
 
     // delete asset
     app.delete("/assets/:id", verifyToken, async (req, res) => {
@@ -284,47 +237,27 @@ app.get("/assetsEmail", verifyToken,verifyAdmin, async (req, res) => {
     //   res.send(result);
     // });
 
-
-
-
-
-
     // update asset
-app.patch("/assets/:id", verifyToken, async (req, res) => {
-  const id = req.params.id;
-  const assetInfo = req.body;
+    app.patch("/assets/:id", verifyToken, async (req, res) => {
+      const id = req.params.id;
+      const assetInfo = req.body;
 
-  const query = { _id: new ObjectId(id) };
+      const query = { _id: new ObjectId(id) };
 
-  const updateDoc = {
-    $set: {
-      productName: assetInfo.productName,
-      productQuantity: Number(assetInfo.productQuantity),
-      availableQuantity: Number(assetInfo.availableQuantity),
-      productType: assetInfo.productType,
-      companyName: assetInfo.companyName,
-    },
-  };
+      const updateDoc = {
+        $set: {
+          productName: assetInfo.productName,
+          productQuantity: Number(assetInfo.productQuantity),
+          availableQuantity: Number(assetInfo.availableQuantity),
+          productType: assetInfo.productType,
+          companyName: assetInfo.companyName,
+        },
+      };
 
-  const result = await assetCollection.updateOne(query, updateDoc);
+      const result = await assetCollection.updateOne(query, updateDoc);
 
-  res.send(result);
-});
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+      res.send(result);
+    });
 
     // packages related apis
 
@@ -423,7 +356,7 @@ app.patch("/assets/:id", verifyToken, async (req, res) => {
         const updateResult = await paymentCollection.updateOne(
           {
             stripeSessionId: sessionId,
-            status: "pending", 
+            status: "pending",
           },
           {
             $set: {
@@ -470,501 +403,398 @@ app.patch("/assets/:id", verifyToken, async (req, res) => {
       }
     });
 
-  
+    // Request related APIs
 
+    // get by hr email
 
+    app.get(
+      "/asset-requests/by-hr",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const hrEmail = req.decodedEmail;
+        // console.log("Fetching requests dddgh for HR:", hrEmail);
 
+        const result = await requestCollection
+          .find({ hrEmail })
+          .sort({ requestDate: -1 })
 
+          .toArray();
 
+        res.send(result);
+      }
+    );
 
+    // post request
+    app.post("/asset-requests", verifyToken, async (req, res) => {
+      const request = req.body;
 
-// Request related APIs 
-
-
-
-
-
-
-
-
-// get by hr email
-
-
-app.get("/asset-requests/by-hr", verifyToken, verifyAdmin, async (req, res) => {
-  const hrEmail = req.decodedEmail;
-  // console.log("Fetching requests dddgh for HR:", hrEmail);
-
-  const result = await requestCollection
-    .find({ hrEmail })
-    .sort({ requestDate: -1 })
-    
-    .toArray();
-
-  res.send(result);
-});
-
-
-
-
-
-
-
-
-
-
-// post request
-app.post("/asset-requests", verifyToken, async (req, res) => {
-  const request = req.body;
-
-  const exists = await requestCollection.findOne({
-    assetId: new ObjectId(request.assetId),
-    requesterEmail: req.decodedEmail,
-    requestStatus: { $in: ["pending", "approved"] },
-  });
-
-  if (exists) {
-    return res.status(400).send({ message: "Already requested" });
-  }
-
-  const newRequest = {
-    assetId: new ObjectId(request.assetId),
-    assetName: request.assetName,
-    assetType: request.assetType,
-    requesterName: request.requesterName,
-    requesterEmail: req.decodedEmail,
-    hrEmail: request.hrEmail,
-    companyName: request.companyName,
-    requestDate: new Date(),
-    approvalDate: null,
-    requestStatus: "pending",
-    note: request.note,
-    processedBy: null,
-  };
-
-  const result = await requestCollection.insertOne(newRequest);
-  res.send(result);
-});
-
-
-// get all requests of a specific for hr
-
-// app.get("/all-asset-requests", verifyToken, verifyAdmin, async (req, res) => {
-//   try {
-//     const hrEmail = req.decodedEmail;
-//     console.log("Fetching allfdaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa requests for HR:", hrEmail); 
-
-//     const result = await requestCollection
-//       .find({ hrEmail })
-//       .sort({ requestDate: -1 })
-//       .toArray();
-
-//     res.send(result);
-//   } catch (error) {
-//     console.error("All requests error:", error);
-//     res.status(500).send({ message: "Server error" });
-//   }
-// });
-
-
-// approve or reject request
-// approve asset request
-// app.patch(
-//   "/asset-requests/:id/approve",
-//   verifyToken,
-//   verifyAdmin,
-//   async (req, res) => {
-//     try {
-//       const id = req.params.id;
-//       const hrEmail = req.decodedEmail;
-
-//       const request = await requestCollection.findOne({
-//         _id: new ObjectId(id),
-//       });
-
-//       if (!request) {
-//         return res.status(404).send({ message: "Request not found" });
-//       }
-
-//       if (request.requestStatus !== "pending") {
-//         return res
-//           .status(400)
-//           .send({ message: "Request already processed" });
-//       }
-
-     
-//       let returnDeadline = null;
-//       if (request.assetType === "Returnable") {
-//         returnDeadline = new Date();
-//         returnDeadline.setDate(returnDeadline.getDate() + 30);
-//       }
-
-//       const updateDoc = {
-//         $set: {
-//           requestStatus: "approved",
-//           approvalDate: new Date(),
-//           processedBy: hrEmail,
-//           returnDeadline, 
-//         },
-//       };
-
-//       await requestCollection.updateOne(
-//         { _id: new ObjectId(id) },
-//         updateDoc
-//       );
-
-//       res.send({
-//         success: true,
-//         message: "Request approved successfully",
-//       });
-//     } catch (error) {
-//       console.error("Approve request error:", error);
-//       res.status(500).send({ message: "Server error" });
-//     }
-//   }
-// );
-
-
-
-
-
-
-app.patch(
-  "/asset-requests/:id/approve",
-  verifyToken,
-  verifyAdmin,
-  async (req, res) => {
-    try {
-      const requestId = req.params.id;
-      const hrEmail = req.decodedEmail;
-
-      // 1️⃣ Find request
-      const request = await requestCollection.findOne({
-        _id: new ObjectId(requestId),
+      const exists = await requestCollection.findOne({
+        assetId: new ObjectId(request.assetId),
+        requesterEmail: req.decodedEmail,
+        requestStatus: { $in: ["pending", "approved"] },
       });
 
-      if (!request) {
-        return res.status(404).send({ message: "Request not found" });
+      if (exists) {
+        return res.status(400).send({ message: "Already requested" });
       }
 
-      if (request.requestStatus !== "pending") {
-        return res.status(400).send({ message: "Already processed" });
-      }
-
-      // 2️⃣ Find asset
-      const asset = await assetCollection.findOne({
-        _id: new ObjectId(request.assetId),
-      });
-
-      if (!asset) {
-        return res.status(404).send({ message: "Asset not found" });
-      }
-
-      if (asset.productQuantity < 1) {
-        return res.status(400).send({ message: "Out of stock" });
-      }
-
-      // 3️⃣ Update request
-
-
-      await requestCollection.updateOne(
-        { _id: new ObjectId(requestId) },
-        {
-          $set: {
-            requestStatus: "approved",
-            approvalDate: new Date(),
-            processedBy: hrEmail,
-            returnDeadline: request.assetType === "Returnable"
-              ? new Date(Date.now() )
-              : null,
-          },
-        }
-      );
-
-      // 4️⃣ Deduct quantity
-      await assetCollection.updateOne(
-        { _id: asset._id },
-        { $inc: { availableQuantity: -1 } }
-      );
-
-      // 5️⃣ Insert assigned asset
-      await assignedAssetsCollection.insertOne({
-        assetId: asset._id,
-        assetName: asset.productName,
-        assetImage: asset.productImage,
-        assetType: asset.productType,
-        employeeEmail: request.requesterEmail,
-        employeeName: request.requesterName,
-        hrEmail,
+      const newRequest = {
+        assetId: new ObjectId(request.assetId),
+        assetName: request.assetName,
+        assetType: request.assetType,
+        requesterName: request.requesterName,
+        requesterEmail: req.decodedEmail,
+        hrEmail: request.hrEmail,
         companyName: request.companyName,
-        assignmentDate: new Date(),
-        returnDate: null,
-        status: "assigned",
-      });
+        requestDate: new Date(),
+        approvalDate: null,
+        requestStatus: "pending",
+        note: request.note,
+        processedBy: null,
+      };
 
+      const result = await requestCollection.insertOne(newRequest);
+      res.send(result);
+    });
 
-// userCollection edit
+    // get all requests of a specific for hr
 
- const hrUser = await userCollection.findOne({ email: hrEmail });
+    // app.get("/all-asset-requests", verifyToken, verifyAdmin, async (req, res) => {
+    //   try {
+    //     const hrEmail = req.decodedEmail;
+    //     console.log("Fetching allfdaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa requests for HR:", hrEmail);
 
-      if (!hrUser) {
-        return res.status(404).send({ message: "HR not found" });
+    //     const result = await requestCollection
+    //       .find({ hrEmail })
+    //       .sort({ requestDate: -1 })
+    //       .toArray();
+
+    //     res.send(result);
+    //   } catch (error) {
+    //     console.error("All requests error:", error);
+    //     res.status(500).send({ message: "Server error" });
+    //   }
+    // });
+
+    // approve or reject request
+    // approve asset request
+    // app.patch(
+    //   "/asset-requests/:id/approve",
+    //   verifyToken,
+    //   verifyAdmin,
+    //   async (req, res) => {
+    //     try {
+    //       const id = req.params.id;
+    //       const hrEmail = req.decodedEmail;
+
+    //       const request = await requestCollection.findOne({
+    //         _id: new ObjectId(id),
+    //       });
+
+    //       if (!request) {
+    //         return res.status(404).send({ message: "Request not found" });
+    //       }
+
+    //       if (request.requestStatus !== "pending") {
+    //         return res
+    //           .status(400)
+    //           .send({ message: "Request already processed" });
+    //       }
+
+    //       let returnDeadline = null;
+    //       if (request.assetType === "Returnable") {
+    //         returnDeadline = new Date();
+    //         returnDeadline.setDate(returnDeadline.getDate() + 30);
+    //       }
+
+    //       const updateDoc = {
+    //         $set: {
+    //           requestStatus: "approved",
+    //           approvalDate: new Date(),
+    //           processedBy: hrEmail,
+    //           returnDeadline,
+    //         },
+    //       };
+
+    //       await requestCollection.updateOne(
+    //         { _id: new ObjectId(id) },
+    //         updateDoc
+    //       );
+
+    //       res.send({
+    //         success: true,
+    //         message: "Request approved successfully",
+    //       });
+    //     } catch (error) {
+    //       console.error("Approve request error:", error);
+    //       res.status(500).send({ message: "Server error" });
+    //     }
+    //   }
+    // );
+
+    app.patch(
+      "/asset-requests/:id/approve",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        try {
+          const requestId = req.params.id;
+          const hrEmail = req.decodedEmail;
+
+          // 1️⃣ Find request
+          const request = await requestCollection.findOne({
+            _id: new ObjectId(requestId),
+          });
+
+          if (!request) {
+            return res.status(404).send({ message: "Request not found" });
+          }
+
+          if (request.requestStatus !== "pending") {
+            return res.status(400).send({ message: "Already processed" });
+          }
+
+          // 2️⃣ Find asset
+          const asset = await assetCollection.findOne({
+            _id: new ObjectId(request.assetId),
+          });
+
+          if (!asset) {
+            return res.status(404).send({ message: "Asset not found" });
+          }
+
+          if (asset.productQuantity < 1) {
+            return res.status(400).send({ message: "Out of stock" });
+          }
+
+          // 3️⃣ Update request
+
+          await requestCollection.updateOne(
+            { _id: new ObjectId(requestId) },
+            {
+              $set: {
+                requestStatus: "approved",
+                approvalDate: new Date(),
+                processedBy: hrEmail,
+                returnDeadline:
+                  request.assetType === "Returnable"
+                    ? new Date(Date.now())
+                    : null,
+              },
+            }
+          );
+
+          // 4️⃣ Deduct quantity
+          await assetCollection.updateOne(
+            { _id: asset._id },
+            { $inc: { availableQuantity: -1 } }
+          );
+
+          // 5️⃣ Insert assigned asset
+          await assignedAssetsCollection.insertOne({
+            assetId: asset._id,
+            assetName: asset.productName,
+            assetImage: asset.productImage,
+            assetType: asset.productType,
+            employeeEmail: request.requesterEmail,
+            employeeName: request.requesterName,
+            hrEmail,
+            companyName: request.companyName,
+            assignmentDate: new Date(),
+            returnDate: null,
+            status: "assigned",
+          });
+
+          // userCollection edit
+
+          const hrUser = await userCollection.findOne({ email: hrEmail });
+
+          if (!hrUser) {
+            return res.status(404).send({ message: "HR not found" });
+          }
+
+          if (hrUser.packageLimit <= 0) {
+            return res.status(403).send({
+              message: "Package limit exceeded. Please upgrade package.",
+            });
+          }
+
+          await userCollection.updateOne(
+            { email: hrEmail },
+
+            {
+              $inc: {
+                currentEmployees: 1,
+                packageLimit: -1,
+              },
+            }
+          );
+
+          res.send({ success: true });
+        } catch (error) {
+          console.error("APPROVE ERROR ", error);
+          res.status(500).send({ message: "Internal Server Error" });
+        }
       }
+    );
 
-      if (hrUser.packageLimit <= 0) {
-        return res.status(403).send({
-          message: "Package limit exceeded. Please upgrade package.",
+    // return asset request
+
+    // return asset (employee)
+    app.patch("/asset-requests/:id/return", verifyToken, async (req, res) => {
+      try {
+        const id = req.params.id;
+        const email = req.decodedEmail;
+
+        const request = await requestCollection.findOne({
+          _id: new ObjectId(id),
+          requesterEmail: email,
+          requestStatus: "approved",
+          assetType: "Returnable",
         });
-      }
 
-      await userCollection.updateOne(
-        { email: hrEmail },
-
-
-        {
-          $inc: {
-            currentEmployees: 1,
-            packageLimit: -1,
-          },
+        if (!request) {
+          return res.status(400).send({ message: "Not returnable" });
         }
-      );
 
+        // update request status
+        await requestCollection.updateOne(
+          { _id: request._id },
+          {
+            $set: {
+              requestStatus: "returned",
+              returnDate: new Date(),
+            },
+          }
+        );
 
+        // increase asset quantity
+        await assetCollection.updateOne(
+          { _id: new ObjectId(request.assetId) },
+          { $inc: { availableQuantity: 1 } }
+        );
 
-
-
-
-
-
-
-
-
-      res.send({ success: true });
-    } catch (error) {
-      console.error("APPROVE ERROR ", error);
-      res.status(500).send({ message: "Internal Server Error" });
-    }
-  }
-);
-
-
-
-
-// return asset request
-
-
-
-// return asset (employee)
-app.patch(
-  "/asset-requests/:id/return",
-  verifyToken,
-  async (req, res) => {
-    try {
-      const id = req.params.id;
-      const email = req.decodedEmail;
-
-      const request = await requestCollection.findOne({
-        _id: new ObjectId(id),
-        requesterEmail: email,
-        requestStatus: "approved",
-        assetType: "Returnable",
-      });
-
-      if (!request) {
-        return res.status(400).send({ message: "Not returnable" });
+        res.send({ success: true });
+      } catch (err) {
+        console.error("RETURN ERROR:", err);
+        res.status(500).send({ message: "Server error" });
       }
+    });
 
-      // update request status
-      await requestCollection.updateOne(
-        { _id: request._id },
-        {
-          $set: {
-            requestStatus: "returned",
-            returnDate: new Date(),
-          },
+    // reject asset request
+    app.patch(
+      "/asset-requests/:id/reject",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        try {
+          const id = req.params.id;
+          const hrEmail = req.decodedEmail;
+
+          console.log("hrEmail", hrEmail);
+
+          const request = await requestCollection.findOne({
+            _id: new ObjectId(id),
+            hrEmail,
+          });
+
+          if (!request) {
+            return res.status(404).send({ message: "Request not found" });
+          }
+
+          if (request.requestStatus !== "pending") {
+            return res
+              .status(400)
+              .send({ message: "Request already processed" });
+          }
+
+          const result = await requestCollection.updateOne(
+            { _id: new ObjectId(id) },
+            {
+              $set: {
+                requestStatus: "rejected",
+                approvalDate: new Date(),
+                processedBy: hrEmail,
+              },
+            }
+          );
+
+          res.send({
+            success: true,
+            message: "Request rejected",
+            result,
+          });
+        } catch (error) {
+          console.error("Reject error:", error);
+          res.status(500).send({ message: "Server error" });
         }
-      );
-
-      // increase asset quantity
-      await assetCollection.updateOne(
-        { _id: new ObjectId(request.assetId) },
-        { $inc: { availableQuantity: 1 } }
-      );
-
-      res.send({ success: true });
-    } catch (err) {
-      console.error("RETURN ERROR:", err);
-      res.status(500).send({ message: "Server error" });
-    }
-  }
-);
-
-
-
-
-
-
-
-
-
-
-
-
-
-// reject asset request
-app.patch(
-  "/asset-requests/:id/reject",
-  verifyToken,
-  verifyAdmin,
-  async (req, res) => {
-    try {
-      const id = req.params.id;
-      const hrEmail = req.decodedEmail;
-
-      console.log('hrEmail',hrEmail )
-
-      const request = await requestCollection.findOne({
-        _id: new ObjectId(id),
-        hrEmail,
-      });
-
-      if (!request) {
-        return res.status(404).send({ message: "Request not found" });
       }
+    );
 
-      if (request.requestStatus !== "pending") {
+    // get all requests of a specific user
+    app.get("/asset-requests/user/:email", verifyToken, async (req, res) => {
+      try {
+        const email = req.params.email;
+
+        // make sure user can only fetch their own requests
+        if (req.decodedEmail !== email) {
+          return res.status(403).send({ message: "Forbidden" });
+        }
+
+        const requests = await requestCollection
+          .find({ requesterEmail: email })
+          .sort({ requestDate: -1 })
+          .toArray();
+
+        res.send(requests);
+      } catch (err) {
+        console.error(err);
+        res.status(500).send({ message: "Server error" });
+      }
+    });
+
+    // end of Request related APIs
+
+    // for your employee list
+
+    // HR sees all assigned assets under him
+    app.get(
+      "/assigned-assets/hr/:email",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const email = req.params.email;
+
+        if (req.decodedEmail !== email) {
+          return res.status(401).send({ error: "Forbidden" });
+        }
+
+        const result = await requestCollection
+          .find({ hrEmail: email })
+          .sort({ assignmentDate: -1 })
+          .toArray();
+
+        res.send(result);
+      }
+    );
+
+    // find hr limit from user collection
+
+    app.get("/users/hr", verifyToken, async (req, res) => {
+      const email = req.query.email;
+
+      if (!email) {
         return res
           .status(400)
-          .send({ message: "Request already processed" });
+          .send({ message: "Email query parameter is required" });
       }
 
-      const result = await requestCollection.updateOne(
-        { _id: new ObjectId(id) },
-        {
-          $set: {
-            requestStatus: "rejected",
-            approvalDate: new Date(),
-            processedBy: hrEmail,
-          },
-        }
-      );
-
-      res.send({
-        success: true,
-        message: "Request rejected",
-        result,
-      });
-    } catch (error) {
-      console.error("Reject error:", error);
-      res.status(500).send({ message: "Server error" });
-    }
-  }
-);
-
-
-
-
-
-
-
-
-
-
-// get all requests of a specific user
-app.get("/asset-requests/user/:email", verifyToken, async (req, res) => {
-  try {
-    const email = req.params.email;
-
-    // make sure user can only fetch their own requests
-    if (req.decodedEmail !== email) {
-      return res.status(403).send({ message: "Forbidden" });
-    }
-
-    const requests = await requestCollection
-      .find({ requesterEmail: email })
-      .sort({ requestDate: -1 })
-      .toArray();
-
-    res.send(requests);
-  } catch (err) {
-    console.error(err);
-    res.status(500).send({ message: "Server error" });
-  }
-});
-
-
-
-
-
-
-
-
-
-
-// end of Request related APIs
-
-
-
-
-
-
-
-
-
-
-// for your employee list
-
-
-// HR sees all assigned assets under him
-app.get("/assigned-assets/hr/:email", verifyToken,verifyAdmin, async (req, res) => {
-  const email = req.params.email;
-
-  if (req.decodedEmail !== email) {
-    return res.status(401).send({ error: "Forbidden" });
-  }
-
-  const result = await requestCollection
-    .find({ hrEmail: email })
-    .sort({ assignmentDate: -1 })
-    .toArray();
-
-  res.send(result);
-});
-
-
-
-
-// find hr limit from user collection
-
-app.get("/users/hr", verifyToken, async (req, res) => {
-  const email = req.query.email;
-
-  if (!email) {
-    return res.status(400).send({ message: "Email query parameter is required" });
-  }
-
-  const user = await userCollection.findOne({ email });
-  if (!user) return res.status(404).send({ message: "User not found" });
-
-  res.send({ packageLimit: user.packageLimit || 0 });
-});
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+      const user = await userCollection.findOne({ email });
+      if (!user) return res.status(404).send({ message: "User not found" });
+
+      res.send({ packageLimit: user.packageLimit || 0 });
+    });
   } finally {
     // do not close client
   }
