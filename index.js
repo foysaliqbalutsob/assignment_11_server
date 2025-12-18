@@ -217,27 +217,6 @@ async function run() {
     });
 
     // update asset
-    // app.patch("/assets/:id", verifyToken, async (req, res) => {
-    //   const id = req.params.id;
-    //   const assetInfo = req.body;
-    //   const query = { _id: new ObjectId(id) };
-
-    //   const updateDoc = {
-    //     $set: {
-    //       name: assetInfo.name,
-    //       type: assetInfo.type,
-    //       value: assetInfo.value,
-    //       location: assetInfo.location,
-    //       status: assetInfo.status,
-    //     },
-    //   };
-    //   const result = await assetCollection.updateOne(query, updateDoc, {
-    //     upsert: true,
-    //   });
-    //   res.send(result);
-    // });
-
-    // update asset
     app.patch("/assets/:id", verifyToken, async (req, res) => {
       const id = req.params.id;
       const assetInfo = req.body;
@@ -450,6 +429,10 @@ async function run() {
         requestDate: new Date(),
         approvalDate: null,
         requestStatus: "pending",
+
+        productQuantity: Number(request.productQuantity),
+        availableQuantity: Number(request.availableQuantity),
+
         note: request.note,
         processedBy: null,
       };
@@ -546,6 +529,7 @@ async function run() {
           const request = await requestCollection.findOne({
             _id: new ObjectId(requestId),
           });
+          console.log(request)
 
           if (!request) {
             return res.status(404).send({ message: "Request not found" });
@@ -577,6 +561,10 @@ async function run() {
                 requestStatus: "approved",
                 approvalDate: new Date(),
                 processedBy: hrEmail,
+                productQuantity: "",
+                availableQuantity: "",
+                employeeBateOfBirth: "",
+
                 returnDeadline:
                   request.assetType === "Returnable"
                     ? new Date(Date.now())
@@ -600,6 +588,9 @@ async function run() {
             employeeEmail: request.requesterEmail,
             employeeName: request.requesterName,
             hrEmail,
+            productQuantity: asset.productQuantity, // ✅ FIX
+            availableQuantity: asset.availableQuantity - 1,
+            employeeBateOfBirth: request.dateOfBirth || null,
             companyName: request.companyName,
             assignmentDate: new Date(),
             returnDate: null,
@@ -796,143 +787,99 @@ async function run() {
       res.send({ packageLimit: user.packageLimit || 0 });
     });
 
+    // my team er kaaj
 
+    // Employee companies + employee count
+    // app.get("/employee/companies/:email", verifyToken, async (req, res) => {
+    //   const email = req.params.email;
 
-// my team er kaaj
+    //   if (req.decodedEmail !== email) {
+    //     return res.status(403).send({ message: "Forbidden" });
+    //   }
 
+    //   const result = await assignedAssetsCollection.aggregate([
+    //     {
+    //       $match: { employeeEmail: email }
+    //     },
+    //     {
+    //       $group: {
+    //         _id: "$companyName",
+    //         hrEmail: { $first: "$hrEmail" }
+    //       }
+    //     },
+    //     {
+    //       $lookup: {
+    //         from: "assignedAssets",
+    //         localField: "_id",
+    //         foreignField: "companyName",
+    //         as: "employees"
+    //       }
+    //     },
+    //     {
+    //       $project: {
+    //         companyName: "$_id",
+    //         employeeCount: {
+    //           $size: {
+    //             $setUnion: ["$employees.employeeEmail"]
+    //           }
+    //         }
+    //       }
+    //     }
+    //   ]).toArray();
 
+    //   res.send(result);
+    // });
+    // GET employee companies
 
-// Employee companies + employee count
-// app.get("/employee/companies/:email", verifyToken, async (req, res) => {
-//   const email = req.params.email;
+    // GET employee companies (using find)
+    app.get("/employee/companies/:email", verifyToken, async (req, res) => {
+      const email = req.params.email;
 
-//   if (req.decodedEmail !== email) {
-//     return res.status(403).send({ message: "Forbidden" });
-//   }
+      if (req.decodedEmail !== email) {
+        return res.status(403).send({ message: "Forbidden" });
+      }
 
-//   const result = await assignedAssetsCollection.aggregate([
-//     {
-//       $match: { employeeEmail: email }
-//     },
-//     {
-//       $group: {
-//         _id: "$companyName",
-//         hrEmail: { $first: "$hrEmail" }
-//       }
-//     },
-//     {
-//       $lookup: {
-//         from: "assignedAssets",
-//         localField: "_id",
-//         foreignField: "companyName",
-//         as: "employees"
-//       }
-//     },
-//     {
-//       $project: {
-//         companyName: "$_id",
-//         employeeCount: {
-//           $size: {
-//             $setUnion: ["$employees.employeeEmail"]
-//           }
-//         }
-//       }
-//     }
-//   ]).toArray();
+      const result = await assignedAssetsCollection
+        .find({ employeeEmail: email })
+        .project({ companyName: 1, _id: 0 })
+        .toArray();
 
-//   res.send(result);
-// });
-// GET employee companies
+      // unique company names
+      const companies = [
+        ...new Set(result.map((item) => item.companyName)),
+      ].map((name) => ({ companyName: name }));
 
+      res.send(companies);
+    });
 
+    // GET employee companies
 
-// GET employee companies (using find)
-app.get("/employee/companies/:email", verifyToken, async (req, res) => {
-  const email = req.params.email;
+    // GET employees of a specific company
+    app.get("/company/:companyName", verifyToken, async (req, res) => {
+      const companyName = req.params.companyName;
 
-  if (req.decodedEmail !== email) {
-    return res.status(403).send({ message: "Forbidden" });
-  }
+      // find all assets of this company
+      const assets = await assignedAssetsCollection
+        .find({ companyName })
+        .toArray();
 
-  const result = await assignedAssetsCollection
-    .find({ employeeEmail: email })
-    .project({ companyName: 1, _id: 0 })
-    .toArray();
+      // create unique employees list
+      const employeeMap = {};
+      assets.forEach((asset) => {
+        if (!employeeMap[asset.employeeEmail]) {
+          employeeMap[asset.employeeEmail] = {
+            name: asset.employeeName,
+            email: asset.employeeEmail,
+            photo: asset.assetImage || null,
+            position: asset.position || "",
+            dateOfBirth: asset.dateOfBirth || null,
+          };
+        }
+      });
 
-  // unique company names
-  const companies = [
-    ...new Set(result.map(item => item.companyName))
-  ].map(name => ({ companyName: name }));
-
-  res.send(companies);
-});
-
-
-
-
-// GET employee companies
-
-
-
-// GET employees of a specific company 
-app.get("/company/:companyName", verifyToken, async (req, res) => {
-  const companyName = req.params.companyName;
-
-  // find all assets of this company
-  const assets = await assignedAssetsCollection.find({ companyName }).toArray();
-
-  // create unique employees list
-  const employeeMap = {};
-  assets.forEach(asset => {
-    if (!employeeMap[asset.employeeEmail]) {
-      employeeMap[asset.employeeEmail] = {
-        name: asset.employeeName,
-        email: asset.employeeEmail,
-        photo: asset.assetImage || null,       
-        position: asset.position || "",  
-        dateOfBirth: asset.dateOfBirth || null
-      };
-    }
-  });
-
-  const employees = Object.values(employeeMap);
-  res.send(employees);
-});
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+      const employees = Object.values(employeeMap);
+      res.send(employees);
+    });
   } finally {
     // do not close client
   }
