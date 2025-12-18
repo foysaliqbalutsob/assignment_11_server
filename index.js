@@ -795,6 +795,144 @@ async function run() {
 
       res.send({ packageLimit: user.packageLimit || 0 });
     });
+
+
+
+// my team er kaaj
+
+
+
+// Employee companies + employee count
+// app.get("/employee/companies/:email", verifyToken, async (req, res) => {
+//   const email = req.params.email;
+
+//   if (req.decodedEmail !== email) {
+//     return res.status(403).send({ message: "Forbidden" });
+//   }
+
+//   const result = await assignedAssetsCollection.aggregate([
+//     {
+//       $match: { employeeEmail: email }
+//     },
+//     {
+//       $group: {
+//         _id: "$companyName",
+//         hrEmail: { $first: "$hrEmail" }
+//       }
+//     },
+//     {
+//       $lookup: {
+//         from: "assignedAssets",
+//         localField: "_id",
+//         foreignField: "companyName",
+//         as: "employees"
+//       }
+//     },
+//     {
+//       $project: {
+//         companyName: "$_id",
+//         employeeCount: {
+//           $size: {
+//             $setUnion: ["$employees.employeeEmail"]
+//           }
+//         }
+//       }
+//     }
+//   ]).toArray();
+
+//   res.send(result);
+// });
+// GET employee companies
+
+
+
+// GET employee companies (using find)
+app.get("/employee/companies/:email", verifyToken, async (req, res) => {
+  const email = req.params.email;
+
+  if (req.decodedEmail !== email) {
+    return res.status(403).send({ message: "Forbidden" });
+  }
+
+  const result = await assignedAssetsCollection
+    .find({ employeeEmail: email })
+    .project({ companyName: 1, _id: 0 })
+    .toArray();
+
+  // unique company names
+  const companies = [
+    ...new Set(result.map(item => item.companyName))
+  ].map(name => ({ companyName: name }));
+
+  res.send(companies);
+});
+
+
+
+
+// GET employee companies
+
+
+
+// GET employees of a specific company 
+app.get("/company/:companyName", verifyToken, async (req, res) => {
+  const companyName = req.params.companyName;
+
+  // find all assets of this company
+  const assets = await assignedAssetsCollection.find({ companyName }).toArray();
+
+  // create unique employees list
+  const employeeMap = {};
+  assets.forEach(asset => {
+    if (!employeeMap[asset.employeeEmail]) {
+      employeeMap[asset.employeeEmail] = {
+        name: asset.employeeName,
+        email: asset.employeeEmail,
+        photo: asset.assetImage || null,       
+        position: asset.position || "",  
+        dateOfBirth: asset.dateOfBirth || null
+      };
+    }
+  });
+
+  const employees = Object.values(employeeMap);
+  res.send(employees);
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   } finally {
     // do not close client
   }
@@ -803,7 +941,7 @@ run().catch(console.dir);
 
 // default route
 app.get("/", (req, res) => {
-  res.send("Zap is shifting shifting!");
+  res.send("assignment 11 is running!");
 });
 
 app.listen(port, () => {
