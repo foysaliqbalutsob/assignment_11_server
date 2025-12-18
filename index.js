@@ -432,6 +432,7 @@ async function run() {
 
         productQuantity: Number(request.productQuantity),
         availableQuantity: Number(request.availableQuantity),
+        requesterBirthOfDate:request.requesterBirthOfDate,
 
         note: request.note,
         processedBy: null,
@@ -590,7 +591,7 @@ async function run() {
             hrEmail,
             productQuantity: asset.productQuantity, // ✅ FIX
             availableQuantity: asset.availableQuantity - 1,
-            employeeBateOfBirth: request.dateOfBirth || null,
+            employeeDateOfBirth: request.requesterBirthOfDate,
             companyName: request.companyName,
             assignmentDate: new Date(),
             returnDate: null,
@@ -852,7 +853,7 @@ async function run() {
       res.send(companies);
     });
 
-    // GET employee companies
+    
 
     // GET employees of a specific company
     app.get("/company/:companyName", verifyToken, async (req, res) => {
@@ -872,12 +873,16 @@ async function run() {
             email: asset.employeeEmail,
             photo: asset.assetImage || null,
             position: asset.position || "",
-            dateOfBirth: asset.dateOfBirth || null,
+            dateOfBirth: asset.employeeDateOfBirth,
+            
           };
         }
       });
+      
 
       const employees = Object.values(employeeMap);
+      console.log(employeeMap)
+    
       res.send(employees);
     });
   } finally {
