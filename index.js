@@ -421,6 +421,7 @@ async function run() {
       const newRequest = {
         assetId: new ObjectId(request.assetId),
         assetName: request.assetName,
+        assetImage: request.assetImage,
         assetType: request.assetType,
         requesterName: request.requesterName,
         requesterEmail: req.decodedEmail,
