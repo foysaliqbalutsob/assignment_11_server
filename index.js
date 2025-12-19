@@ -174,11 +174,35 @@ async function run() {
     });
 
     // Asset related apis
+    // app.get("/assets", async (req, res) => {
+    //   const cursor = myDB.collection("assets").find({});
+    //   const result = await cursor.toArray();
+    //   res.send(result);
+    // });
+
     app.get("/assets", async (req, res) => {
-      const cursor = myDB.collection("assets").find({});
-      const result = await cursor.toArray();
-      res.send(result);
-    });
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+
+  const skip = (page - 1) * limit;
+
+  const total = await assetCollection.countDocuments();
+
+  const assets = await assetCollection
+    .find({})
+    .skip(skip)
+    .limit(limit)
+    .toArray();
+
+  res.send({
+    assets,
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit),
+  });
+});
+
 
     app.post("/assets", verifyToken, async (req, res) => {
       const asset = req.body;
@@ -226,6 +250,7 @@ async function run() {
       const updateDoc = {
         $set: {
           productName: assetInfo.productName,
+          productImage: assetInfo.productImage,
           productQuantity: Number(assetInfo.productQuantity),
           availableQuantity: Number(assetInfo.availableQuantity),
           productType: assetInfo.productType,
