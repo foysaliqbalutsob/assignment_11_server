@@ -872,6 +872,104 @@ async function run() {
     
       res.send(employees);
     });
+
+// for bar rechart
+
+app.get(
+  "/dashboard/asset-type-summary",
+  verifyToken,
+  verifyAdmin,
+  async (req, res) => {
+    const hrEmail = req.decodedEmail;
+
+    const pipeline = [
+      { $match: { hrEmail } },
+      {
+        $group: {
+          _id: "$assetType",
+          count: { $sum: 1 },
+        },
+      },
+    ];
+
+    const result = await assignedAssetsCollection
+      .aggregate(pipeline)
+      .toArray();
+
+    let summary = {
+      returnable: 0,
+      nonReturnable: 0,
+    };
+
+    result.forEach((item) => {
+      if (item._id === "Returnable") {
+        summary.returnable = item.count;
+      } else {
+        summary.nonReturnable += item.count;
+      }
+    });
+
+    res.send(summary);
+  }
+);
+
+
+
+// second
+
+
+app.get(
+  "/dashboard/top-assets",
+  verifyToken,
+  verifyAdmin,
+  async (req, res) => {
+    const hrEmail = req.decodedEmail;
+
+    const pipeline = [
+      { $match: { hrEmail } },
+      {
+        $group: {
+          _id: "$assetName",
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { count: -1 } },
+      { $limit: 5 },
+    ];
+
+    const result = await assignedAssetsCollection
+      .aggregate(pipeline)
+      .toArray();
+
+    const formatted = result.map((item) => ({
+      assetName: item._id,
+      count: item.count,
+    }));
+
+    res.send(formatted);
+  }
+);
+
+
+// end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   } finally {
     // do not close client
   }
