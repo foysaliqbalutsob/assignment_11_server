@@ -790,46 +790,7 @@ async function run() {
 
     // my team er kaaj
 
-    // Employee companies + employee count
-    // app.get("/employee/companies/:email", verifyToken, async (req, res) => {
-    //   const email = req.params.email;
-
-    //   if (req.decodedEmail !== email) {
-    //     return res.status(403).send({ message: "Forbidden" });
-    //   }
-
-    //   const result = await assignedAssetsCollection.aggregate([
-    //     {
-    //       $match: { employeeEmail: email }
-    //     },
-    //     {
-    //       $group: {
-    //         _id: "$companyName",
-    //         hrEmail: { $first: "$hrEmail" }
-    //       }
-    //     },
-    //     {
-    //       $lookup: {
-    //         from: "assignedAssets",
-    //         localField: "_id",
-    //         foreignField: "companyName",
-    //         as: "employees"
-    //       }
-    //     },
-    //     {
-    //       $project: {
-    //         companyName: "$_id",
-    //         employeeCount: {
-    //           $size: {
-    //             $setUnion: ["$employees.employeeEmail"]
-    //           }
-    //         }
-    //       }
-    //     }
-    //   ]).toArray();
-
-    //   res.send(result);
-    // });
+   
     // GET employee companies
 
     // GET employee companies (using find)
