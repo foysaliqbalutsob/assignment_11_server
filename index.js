@@ -953,6 +953,41 @@ app.get(
 
 // end
 
+// hr can assign assetto affilated employee
+
+
+app.post(
+  "/assigned-assets",
+  verifyToken,
+  verifyAdmin,
+  async (req, res) => {
+    const data = req.body;
+
+    const asset = await assetCollection.findOne({
+      _id: new ObjectId(data.assetId),
+    });
+
+    if (!asset || asset.availableQuantity <= 0) {
+      return res.status(400).send({ message: "Asset not available" });
+    }
+
+    await assignedAssetsCollection.insertOne({
+      ...data,
+      assignmentDate: new Date(),
+      returnDate: null,
+      status: "assigned",
+    });
+
+    await assetCollection.updateOne(
+      { _id: asset._id },
+      { $inc: { availableQuantity: -1 } }
+    );
+
+    res.send({ success: true });
+  }
+);
+
+
 
 
 
