@@ -1000,6 +1000,56 @@ async function run() {
         message: "Asset assigned with request record",
       });
     });
+
+
+    // api for summary 
+    // apis for dashboardHome page
+
+    app.get(
+  "/assigned-assets",
+  verifyToken,
+  verifyAdmin,
+  async (req, res) => {
+    const hrEmail = req.decodedEmail;
+
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 5;
+    const skip = (page - 1) * limit;
+
+    const query = { hrEmail };
+
+    const total = await assignedAssetsCollection.countDocuments(query);
+
+    const assets = await assignedAssetsCollection
+      .find(query)
+      .sort({ assignmentDate: -1 })
+      .skip(skip)
+      .limit(limit)
+      .toArray();
+
+    res.send({
+      data: assets,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    });
+  }
+);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   } finally {
     // do not close client
   }
