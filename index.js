@@ -707,8 +707,8 @@ async function run() {
         }
 
         const result = await requestCollection
-          .find({ hrEmail: email })
-          .sort({ assignmentDate: -1 })
+          .find({ hrEmail: email, requestStatus: "approved" })
+          .sort({ approvalDate: -1 })
           .toArray();
 
         res.send(result);
