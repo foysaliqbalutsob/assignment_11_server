@@ -181,28 +181,27 @@ async function run() {
     // });
 
     app.get("/assets", async (req, res) => {
-  const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 10;
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
 
-  const skip = (page - 1) * limit;
+      const skip = (page - 1) * limit;
 
-  const total = await assetCollection.countDocuments();
+      const total = await assetCollection.countDocuments();
 
-  const assets = await assetCollection
-    .find({})
-    .skip(skip)
-    .limit(limit)
-    .toArray();
+      const assets = await assetCollection
+        .find({})
+        .skip(skip)
+        .limit(limit)
+        .toArray();
 
-  res.send({
-    assets,
-    total,
-    page,
-    limit,
-    totalPages: Math.ceil(total / limit),
-  });
-});
-
+      res.send({
+        assets,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      });
+    });
 
     app.post("/assets", verifyToken, async (req, res) => {
       const asset = req.body;
@@ -458,7 +457,7 @@ async function run() {
 
         productQuantity: Number(request.productQuantity),
         availableQuantity: Number(request.availableQuantity),
-        requesterBirthOfDate:request.requesterBirthOfDate,
+        requesterBirthOfDate: request.requesterBirthOfDate,
 
         note: request.note,
         processedBy: null,
@@ -467,81 +466,6 @@ async function run() {
       const result = await requestCollection.insertOne(newRequest);
       res.send(result);
     });
-
-    // get all requests of a specific for hr
-
-    // app.get("/all-asset-requests", verifyToken, verifyAdmin, async (req, res) => {
-    //   try {
-    //     const hrEmail = req.decodedEmail;
-    //     console.log("Fetching allfdaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa requests for HR:", hrEmail);
-
-    //     const result = await requestCollection
-    //       .find({ hrEmail })
-    //       .sort({ requestDate: -1 })
-    //       .toArray();
-
-    //     res.send(result);
-    //   } catch (error) {
-    //     console.error("All requests error:", error);
-    //     res.status(500).send({ message: "Server error" });
-    //   }
-    // });
-
-    // approve or reject request
-    // approve asset request
-    // app.patch(
-    //   "/asset-requests/:id/approve",
-    //   verifyToken,
-    //   verifyAdmin,
-    //   async (req, res) => {
-    //     try {
-    //       const id = req.params.id;
-    //       const hrEmail = req.decodedEmail;
-
-    //       const request = await requestCollection.findOne({
-    //         _id: new ObjectId(id),
-    //       });
-
-    //       if (!request) {
-    //         return res.status(404).send({ message: "Request not found" });
-    //       }
-
-    //       if (request.requestStatus !== "pending") {
-    //         return res
-    //           .status(400)
-    //           .send({ message: "Request already processed" });
-    //       }
-
-    //       let returnDeadline = null;
-    //       if (request.assetType === "Returnable") {
-    //         returnDeadline = new Date();
-    //         returnDeadline.setDate(returnDeadline.getDate() + 30);
-    //       }
-
-    //       const updateDoc = {
-    //         $set: {
-    //           requestStatus: "approved",
-    //           approvalDate: new Date(),
-    //           processedBy: hrEmail,
-    //           returnDeadline,
-    //         },
-    //       };
-
-    //       await requestCollection.updateOne(
-    //         { _id: new ObjectId(id) },
-    //         updateDoc
-    //       );
-
-    //       res.send({
-    //         success: true,
-    //         message: "Request approved successfully",
-    //       });
-    //     } catch (error) {
-    //       console.error("Approve request error:", error);
-    //       res.status(500).send({ message: "Server error" });
-    //     }
-    //   }
-    // );
 
     app.patch(
       "/asset-requests/:id/approve",
@@ -552,11 +476,10 @@ async function run() {
           const requestId = req.params.id;
           const hrEmail = req.decodedEmail;
 
-          // 1️⃣ Find request
           const request = await requestCollection.findOne({
             _id: new ObjectId(requestId),
           });
-          console.log(request)
+          console.log(request);
 
           if (!request) {
             return res.status(404).send({ message: "Request not found" });
@@ -566,7 +489,6 @@ async function run() {
             return res.status(400).send({ message: "Already processed" });
           }
 
-          // 2️⃣ Find asset
           const asset = await assetCollection.findOne({
             _id: new ObjectId(request.assetId),
           });
@@ -578,8 +500,6 @@ async function run() {
           if (asset.productQuantity < 1) {
             return res.status(400).send({ message: "Out of stock" });
           }
-
-          // 3️⃣ Update request
 
           await requestCollection.updateOne(
             { _id: new ObjectId(requestId) },
@@ -600,13 +520,11 @@ async function run() {
             }
           );
 
-          // 4️⃣ Deduct quantity
           await assetCollection.updateOne(
             { _id: asset._id },
             { $inc: { availableQuantity: -1 } }
           );
 
-          // 5️⃣ Insert assigned asset
           await assignedAssetsCollection.insertOne({
             assetId: asset._id,
             assetName: asset.productName,
@@ -615,7 +533,7 @@ async function run() {
             employeeEmail: request.requesterEmail,
             employeeName: request.requesterName,
             hrEmail,
-            productQuantity: asset.productQuantity, // ✅ FIX
+            productQuantity: asset.productQuantity,
             availableQuantity: asset.availableQuantity - 1,
             employeeDateOfBirth: request.requesterBirthOfDate,
             companyName: request.companyName,
@@ -816,7 +734,6 @@ async function run() {
 
     // my team er kaaj
 
-   
     // GET employee companies
 
     // GET employee companies (using find)
@@ -840,8 +757,6 @@ async function run() {
       res.send(companies);
     });
 
-    
-
     // GET employees of a specific company
     app.get("/company/:companyName", verifyToken, async (req, res) => {
       const companyName = req.params.companyName;
@@ -861,150 +776,230 @@ async function run() {
             photo: asset.assetImage || null,
             position: asset.position || "",
             dateOfBirth: asset.employeeDateOfBirth,
-            
           };
         }
       });
-      
 
       const employees = Object.values(employeeMap);
-      console.log(employeeMap)
-    
+      console.log(employeeMap);
+
       res.send(employees);
     });
 
-// for bar rechart
+    // for bar rechart
 
-app.get(
-  "/dashboard/asset-type-summary",
-  verifyToken,
-  verifyAdmin,
-  async (req, res) => {
-    const hrEmail = req.decodedEmail;
+    app.get(
+      "/dashboard/asset-type-summary",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const hrEmail = req.decodedEmail;
 
-    const pipeline = [
-      { $match: { hrEmail } },
-      {
-        $group: {
-          _id: "$assetType",
-          count: { $sum: 1 },
-        },
-      },
-    ];
+        const pipeline = [
+          { $match: { hrEmail } },
+          {
+            $group: {
+              _id: "$assetType",
+              count: { $sum: 1 },
+            },
+          },
+        ];
 
-    const result = await assignedAssetsCollection
-      .aggregate(pipeline)
-      .toArray();
+        const result = await assignedAssetsCollection
+          .aggregate(pipeline)
+          .toArray();
 
-    let summary = {
-      returnable: 0,
-      nonReturnable: 0,
-    };
+        let summary = {
+          returnable: 0,
+          nonReturnable: 0,
+        };
 
-    result.forEach((item) => {
-      if (item._id === "Returnable") {
-        summary.returnable = item.count;
-      } else {
-        summary.nonReturnable += item.count;
+        result.forEach((item) => {
+          if (item._id === "Returnable") {
+            summary.returnable = item.count;
+          } else {
+            summary.nonReturnable += item.count;
+          }
+        });
+
+        res.send(summary);
       }
-    });
-
-    res.send(summary);
-  }
-);
-
-
-
-// second
-
-
-app.get(
-  "/dashboard/top-assets",
-  verifyToken,
-  verifyAdmin,
-  async (req, res) => {
-    const hrEmail = req.decodedEmail;
-
-    const pipeline = [
-      { $match: { hrEmail } },
-      {
-        $group: {
-          _id: "$assetName",
-          count: { $sum: 1 },
-        },
-      },
-      { $sort: { count: -1 } },
-      { $limit: 5 },
-    ];
-
-    const result = await assignedAssetsCollection
-      .aggregate(pipeline)
-      .toArray();
-
-    const formatted = result.map((item) => ({
-      assetName: item._id,
-      count: item.count,
-    }));
-
-    res.send(formatted);
-  }
-);
-
-
-// end
-
-// hr can assign assetto affilated employee
-
-
-app.post(
-  "/assigned-assets",
-  verifyToken,
-  verifyAdmin,
-  async (req, res) => {
-    const data = req.body;
-
-    const asset = await assetCollection.findOne({
-      _id: new ObjectId(data.assetId),
-    });
-
-    if (!asset || asset.availableQuantity <= 0) {
-      return res.status(400).send({ message: "Asset not available" });
-    }
-
-    await assignedAssetsCollection.insertOne({
-      ...data,
-      assignmentDate: new Date(),
-      returnDate: null,
-      status: "assigned",
-    });
-
-    await assetCollection.updateOne(
-      { _id: asset._id },
-      { $inc: { availableQuantity: -1 } }
     );
 
-    res.send({ success: true });
-  }
-);
+    // second
 
+    app.get(
+      "/dashboard/top-assets",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const hrEmail = req.decodedEmail;
 
+        const pipeline = [
+          { $match: { hrEmail } },
+          {
+            $group: {
+              _id: "$assetName",
+              count: { $sum: 1 },
+            },
+          },
+          { $sort: { count: -1 } },
+          { $limit: 5 },
+        ];
 
+        const result = await assignedAssetsCollection
+          .aggregate(pipeline)
+          .toArray();
 
+        const formatted = result.map((item) => ({
+          assetName: item._id,
+          count: item.count,
+        }));
 
+        res.send(formatted);
+      }
+    );
 
+    // end
 
+    // hr can assign assetto affilated employee
 
+    // app.post(
+    //   "/assigned-assets",
+    //   verifyToken,
+    //   verifyAdmin,
+    //   async (req, res) => {
+    //     const data = req.body;
+    //     const hrEmail = data.hrEmail;
 
+    //     const asset = await assetCollection.findOne({
+    //       _id: new ObjectId(data.assetId),
+    //     });
 
+    //     if (!asset || asset.availableQuantity <= 0) {
+    //       return res.status(400).send({ message: "Asset not available" });
+    //     }
 
+    //     // Get HR user
+    //     const hrUser = await userCollection.findOne({ email: hrEmail });
+    //     if (!hrUser) {
+    //       return res.status(404).send({ message: "HR user not found" });
+    //     }
 
+    //     if (hrUser.packageLimit <= 0) {
+    //       return res
+    //         .status(403)
+    //         .send({ message: "Package limit exceeded. Upgrade package." });
+    //     }
 
+    //     // Insert assigned asset
+    //     await assignedAssetsCollection.insertOne({
+    //       ...data,
+    //       assignmentDate: new Date(),
+    //       returnDate: null,
+    //       status: "assigned",
+    //     });
 
+    //     // Decrement asset available quantity
+    //     await assetCollection.updateOne(
+    //       { _id: asset._id },
+    //       { $inc: { availableQuantity: -1 } }
+    //     );
 
+    //     // Update HR's packageLimit and currentEmployees
+    //     await userCollection.updateOne(
+    //       { email: hrEmail },
+    //       { $inc: { packageLimit: -1, currentEmployees: 1 } }
+    //     );
 
+    //     res.send({ success: true, message: "Asset assigned and HR updated" });
+    //   }
+    // );
 
+    app.post("/assigned-assets", verifyToken, verifyAdmin, async (req, res) => {
+      const data = req.body;
+      const hrEmail = data.hrEmail;
 
+      const asset = await assetCollection.findOne({
+        _id: new ObjectId(data.assetId),
+      });
 
+      if (!asset || asset.availableQuantity <= 0) {
+        return res.status(400).send({ message: "Asset not available" });
+      }
+
+      const hrUser = await userCollection.findOne({ email: hrEmail });
+      if (!hrUser || hrUser.packageLimit <= 0) {
+        return res.status(403).send({ message: "Package limit exceeded" });
+      }
+
+      // ✅ 1. INSERT INTO requestCollection (AUTO APPROVED)
+      const requestDoc = {
+        assetId: asset._id,
+        assetName: asset.productName,
+        assetImage: asset.productImage,
+        assetType: asset.productType,
+
+        requesterName: data.employeeName,
+        requesterEmail: data.employeeEmail,
+
+        hrEmail,
+        companyName: data.companyName,
+
+        requestDate: new Date(),
+        approvalDate: new Date(),
+        requestStatus: "approved",
+
+        productQuantity: asset.productQuantity,
+        availableQuantity: asset.availableQuantity - 1,
+        requesterBirthOfDate: data.employeeDateOfBirth || "",
+
+        note: "Assigned directly by HR",
+        processedBy: hrEmail,
+
+        returnDeadline: asset.productType === "Returnable" ? new Date() : null,
+      };
+
+      const requestResult = await requestCollection.insertOne(requestDoc);
+
+      // ✅ 2. INSERT INTO assignedAssetsCollection
+      await assignedAssetsCollection.insertOne({
+        assetId: asset._id,
+        assetName: asset.productName,
+        assetImage: asset.productImage,
+        assetType: asset.productType,
+
+        employeeEmail: data.employeeEmail,
+        employeeName: data.employeeName,
+        employeeDateOfBirth: data.employeeDateOfBirth,
+
+        hrEmail,
+        companyName: data.companyName,
+
+        assignmentDate: new Date(),
+        returnDate: null,
+        status: "assigned",
+
+        requestId: requestResult.insertedId, // 🔗 link
+      });
+
+      // ✅ 3. UPDATE asset quantity
+      await assetCollection.updateOne(
+        { _id: asset._id },
+        { $inc: { availableQuantity: -1 } }
+      );
+
+      // ✅ 4. UPDATE HR limits
+      await userCollection.updateOne(
+        { email: hrEmail },
+        { $inc: { packageLimit: -1, currentEmployees: 1 } }
+      );
+
+      res.send({
+        success: true,
+        message: "Asset assigned with request record",
+      });
+    });
   } finally {
     // do not close client
   }
