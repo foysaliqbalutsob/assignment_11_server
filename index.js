@@ -9,9 +9,22 @@ const stripe = require("stripe")(process.env.STRIPE_SECRET);
 const admin = require("firebase-admin");
 const serviceAccount = require("./serviceAccountKey.json");
 
+
+
+
+
+
+
+// const serviceAccount = require("./firebase-admin-key.json");
+
+// const decoded = Buffer.from(process.env.FB_SERVICE_KEY, 'base64').toString('utf8')
+// const serviceAccount = JSON.parse(decoded);
+
+
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
+
 
 // middleware
 app.use(express.json());
@@ -29,7 +42,7 @@ async function verifyToken(req, res, next) {
   try {
     const decoded = await admin.auth().verifyIdToken(token);
     req.decodedEmail = decoded.email;
-    // console.log("Decoded email:", decoded.email);
+    
     next();
   } catch (error) {
     console.error("Token verify error:", error);
@@ -56,9 +69,9 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    await client.connect();
-    await client.db("admin").command({ ping: 1 });
-    console.log("Pinged your deployment. Connected to MongoDB!");
+    // await client.connect();
+    // await client.db("admin").command({ ping: 1 });
+    // console.log("Pinged your deployment. Connected to MongoDB!");
 
     // --- Database & Collection ---
     const myDB = client.db("zap_shift_db");
@@ -89,7 +102,7 @@ async function run() {
         }
 
         next();
-        console.log("Admin verified", user.role);
+        // console.log("Admin verified", user.role);
       } catch (err) {
         console.error(err);
         return res.status(500).send({ message: "Server Error" });
@@ -104,7 +117,7 @@ async function run() {
       const query = {};
 
       if (searchText) {
-        // case-insensitive partial match on name or email
+      
         query.$or = [
           { displayName: { $regex: searchText, $options: "i" } },
           { email: { $regex: searchText, $options: "i" } },
@@ -174,11 +187,7 @@ async function run() {
     });
 
     // Asset related apis
-    // app.get("/assets", async (req, res) => {
-    //   const cursor = myDB.collection("assets").find({});
-    //   const result = await cursor.toArray();
-    //   res.send(result);
-    // });
+   
 
     app.get("/assets", async (req, res) => {
       const page = parseInt(req.query.page) || 1;
@@ -215,7 +224,7 @@ async function run() {
     app.get("/assetsEmail", verifyToken, verifyAdmin, async (req, res) => {
       try {
         const email = req.decodedEmail;
-        console.log("Fetching assets for:", email);
+        // console.log("Fetching assets for:", email);
 
         if (!email) {
           return res.status(401).send({ message: "Unauthorized" });
@@ -605,7 +614,7 @@ async function run() {
           }
         );
 
-        // increase asset quantity
+      
         await assetCollection.updateOne(
           { _id: new ObjectId(request.assetId) },
           { $inc: { availableQuantity: 1 } }
@@ -617,6 +626,8 @@ async function run() {
         res.status(500).send({ message: "Server error" });
       }
     });
+
+
 
     // reject asset request
     app.patch(
@@ -668,12 +679,11 @@ async function run() {
       }
     );
 
-    // get all requests of a specific user
     app.get("/asset-requests/user/:email", verifyToken, async (req, res) => {
       try {
         const email = req.params.email;
 
-        // make sure user can only fetch their own requests
+       
         if (req.decodedEmail !== email) {
           return res.status(403).send({ message: "Forbidden" });
         }
@@ -694,7 +704,6 @@ async function run() {
 
     // for your employee list
 
-    // HR sees all assigned assets under him
     app.get(
       "/assigned-assets/hr/:email",
       verifyToken,
@@ -736,7 +745,7 @@ async function run() {
 
     // GET employee companies
 
-    // GET employee companies (using find)
+    
     app.get("/employee/companies/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
 
@@ -757,11 +766,10 @@ async function run() {
       res.send(companies);
     });
 
-    // GET employees of a specific company
     app.get("/company/:companyName", verifyToken, async (req, res) => {
       const companyName = req.params.companyName;
 
-      // find all assets of this company
+      // find  all assets of this company
       const assets = await assignedAssetsCollection
         .find({ companyName })
         .toArray();
@@ -781,7 +789,7 @@ async function run() {
       });
 
       const employees = Object.values(employeeMap);
-      console.log(employeeMap);
+      // console.log(employeeMap);
 
       res.send(employees);
     });
@@ -862,59 +870,7 @@ async function run() {
 
     // end
 
-    // hr can assign assetto affilated employee
-
-    // app.post(
-    //   "/assigned-assets",
-    //   verifyToken,
-    //   verifyAdmin,
-    //   async (req, res) => {
-    //     const data = req.body;
-    //     const hrEmail = data.hrEmail;
-
-    //     const asset = await assetCollection.findOne({
-    //       _id: new ObjectId(data.assetId),
-    //     });
-
-    //     if (!asset || asset.availableQuantity <= 0) {
-    //       return res.status(400).send({ message: "Asset not available" });
-    //     }
-
-    //     // Get HR user
-    //     const hrUser = await userCollection.findOne({ email: hrEmail });
-    //     if (!hrUser) {
-    //       return res.status(404).send({ message: "HR user not found" });
-    //     }
-
-    //     if (hrUser.packageLimit <= 0) {
-    //       return res
-    //         .status(403)
-    //         .send({ message: "Package limit exceeded. Upgrade package." });
-    //     }
-
-    //     // Insert assigned asset
-    //     await assignedAssetsCollection.insertOne({
-    //       ...data,
-    //       assignmentDate: new Date(),
-    //       returnDate: null,
-    //       status: "assigned",
-    //     });
-
-    //     // Decrement asset available quantity
-    //     await assetCollection.updateOne(
-    //       { _id: asset._id },
-    //       { $inc: { availableQuantity: -1 } }
-    //     );
-
-    //     // Update HR's packageLimit and currentEmployees
-    //     await userCollection.updateOne(
-    //       { email: hrEmail },
-    //       { $inc: { packageLimit: -1, currentEmployees: 1 } }
-    //     );
-
-    //     res.send({ success: true, message: "Asset assigned and HR updated" });
-    //   }
-    // );
+  
 
     app.post("/assigned-assets", verifyToken, verifyAdmin, async (req, res) => {
       const data = req.body;
@@ -933,7 +889,7 @@ async function run() {
         return res.status(403).send({ message: "Package limit exceeded" });
       }
 
-      // ✅ 1. INSERT INTO requestCollection (AUTO APPROVED)
+      
       const requestDoc = {
         assetId: asset._id,
         assetName: asset.productName,
@@ -962,7 +918,7 @@ async function run() {
 
       const requestResult = await requestCollection.insertOne(requestDoc);
 
-      // ✅ 2. INSERT INTO assignedAssetsCollection
+      
       await assignedAssetsCollection.insertOne({
         assetId: asset._id,
         assetName: asset.productName,
@@ -980,16 +936,16 @@ async function run() {
         returnDate: null,
         status: "assigned",
 
-        requestId: requestResult.insertedId, // 🔗 link
+        requestId: requestResult.insertedId, 
       });
 
-      // ✅ 3. UPDATE asset quantity
+     
       await assetCollection.updateOne(
         { _id: asset._id },
         { $inc: { availableQuantity: -1 } }
       );
 
-      // ✅ 4. UPDATE HR limits
+      
       await userCollection.updateOne(
         { email: hrEmail },
         { $inc: { packageLimit: -1, currentEmployees: 1 } }
